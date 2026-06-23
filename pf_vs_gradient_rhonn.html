@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro de Partículas vs Descenso de Gradiente en RHONN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-cyan: #00f2ff;
+            --accent-yellow: #ffde59;
+            --accent-coral: #f43f5e;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            max-width: 900px;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        @media (min-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            margin-bottom: -12px;
+        }
+
+        .tab-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .tab-content h3 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-content ul {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .tab-content li {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .tab-content li i {
+            margin-top: 4px;
+            font-size: 0.85rem;
+        }
+
+        .simulation-container {
+            position: relative;
+            background-color: #0b1329;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            width: 100%;
+            height: 450px;
+            background: #050b14;
+        }
+
+        .controls-bar {
+            background-color: #111827;
+            padding: 20px;
+            border-top: 1px solid #334155;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            font-family: 'Urbanist', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-cyan);
+            color: #0f172a;
+        }
+
+        .btn-primary:hover {
+            background-color: white;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #64748b;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            border: 1px solid #334155;
+            display: flex;
+            gap: 15px;
+        }
+
+        .status-badge span {
+            color: var(--accent-cyan);
+        }
+
+        .highlight-box {
+            background: rgba(0, 242, 255, 0.05);
+            border-left: 4px solid var(--accent-cyan);
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Laboratorio de Tracking Dinámico para RHONN</h1>
+    <p>Demostración interactiva: Por qué el Filtro de Partículas supera al Descenso de Gradiente ante perturbaciones físicas del mundo real.</p>
+</header>
+
+<div class="dashboard">
+    <!-- Panel Izquierdo: Explicación y Teoría -->
+    <div class="panel">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('teoria')">Concepto</button>
+            <button class="tab-btn" onclick="switchTab('comparativa')">Algoritmia</button>
+        </div>
+
+        <div id="tab-teoria" class="tab-content">
+            <h3><i class="fas fa-wind" style="color: var(--accent-cyan);"></i> El Cambio Físico</h3>
+            <p>La línea azul representa el <strong>Mapa de Rendimiento (Función de Error)</strong> de la red neuronal.</p>
+            <p style="margin-top: 10px;">Cuando ocurre una perturbación física (ej. una ráfaga de viento en un dron):</p>
+            <ul>
+                <li><i class="fas fa-angle-right" style="color: var(--accent-cyan);"></i> El peso que antes daba error cero deja de servir.</li>
+                <li><i class="fas fa-angle-right" style="color: var(--accent-cyan);"></i> La física cambia, haciendo que toda la curva de error se mueva y mute.</li>
+                <li><i class="fas fa-angle-right" style="color: var(--accent-cyan);"></i> El óptimo (valle más profundo) brinca a una nueva posición.</li>
+            </ul>
+            <div class="highlight-box" style="margin-top: 10px;">
+                Pulse el botón de ráfaga para ver cómo la física del problema se transforma instantáneamente.
+            </div>
+        </div>
+
+        <div id="tab-comparativa" class="tab-content" style="display: none;">
+            <h3><i class="fas fa-balance-scale" style="color: var(--accent-yellow);"></i> Comparativa de Enfoques</h3>
+            <ul>
+                <li>
+                    <div>
+                        <strong style="color: var(--accent-yellow);"><i class="fas fa-walking"></i> Gradiente Tradicional:</strong>
+                        <p style="font-size: 0.85rem; color: #aaf;">Es local. Camina paso a paso evaluando su entorno inmediato. Si el valle salta lejos, se queda perdido o atrapado en baches cercanos (mínimos locales).</p>
+                    </div>
+                </li>
+                <li>
+                    <div>
+                        <strong style="color: var(--accent-cyan);"><i class="fas fa-users"></i> Filtro de Partículas:</strong>
+                        <p style="font-size: 0.85rem; color: #aaf;">Es global y estocástico. Al tener una población distribuida, siempre hay exploradores cerca de la nueva realidad física que guían al resto al instante.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Simulación Interactiva -->
+    <div class="simulation-container">
+        <!-- Indicadores en tiempo real -->
+        <div class="status-badge">
+            <div>Evento: <span id="lbl-evento">Física Estable</span></div>
+            <div>Error PF: <span id="lbl-err-pf" style="color: var(--accent-coral);">0.00</span></div>
+            <div>Error GD: <span id="lbl-err-gd" style="color: var(--accent-yellow);">0.00</span></div>
+        </div>
+
+        <canvas id="simCanvas"></canvas>
+
+        <div class="controls-bar">
+            <div class="btn-group">
+                <button class="btn-primary" onclick="triggerWind()">
+                    <i class="fas fa-wind"></i> RÁFAGA DE VIENTO
+                </button>
+                <button class="btn-secondary" onclick="resetSim()">
+                    <i class="fas fa-undo"></i> REINICIAR
+                </button>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--accent-cyan);"></div> Curva de Error Real
+                </div>
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--accent-coral);"></div> Partículas (PF)
+                </div>
+                <div class="legend-item">
+                    <div class="dot" style="background: var(--accent-yellow);"></div> Gradiente (GD)
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = canvas.width = canvas.offsetWidth;
+    let height = canvas.height = 450;
+
+    // Estado del Sistema
+    let landscapeShift = 0;
+    let targetShift = 0;
+    let particles = [];
+    let gdPoint = { x: 150, y: 0 };
+    const NUM_PARTICLES = 35;
+    let windTime = 0;
+
+    // Función de error multimodal (Dips/Valles son bajos errores, picos son altos errores)
+    // Para que sea intuitivo: los valles abajo de la pantalla representan error bajo (éxito).
+    function getErrorPosition(x, shift) {
+        const nx = (x - width / 2 + shift) / 70;
+        // Combinación de senos y cosenos para generar mínimos locales y un mínimo global
+        const errorVal = 0.35 * Math.sin(1.2 * nx) + 0.2 * Math.cos(3.5 * nx) + 0.15 * Math.sin(6 * nx) + 0.6;
+        // Mapeo físico al canvas: el fondo del canvas (Y grande) representa un error bajo (Valle óptimo)
+        return height - 80 - (errorVal * 200);
+    }
+
+    function init() {
+        particles = [];
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+            particles.push({
+                x: Math.random() * (width - 60) + 30,
+                y: 0,
+                weight: 1 / NUM_PARTICLES
+            });
+        }
+        gdPoint.x = width * 0.25;
+        landscapeShift = 0;
+        targetShift = 0;
+        windTime = 0;
+        document.getElementById('lbl-evento').innerText = "Física Estable";
+        document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+    }
+
+    function triggerWind() {
+        // Provoca un desplazamiento drástico e impredecible de la función de error
+        const range = 200 + Math.random() * 150;
+        const direction = Math.random() > 0.5 ? 1 : -1;
+        targetShift += direction * range;
+        
+        // Mantener dentro de márgenes razonables del canvas
+        if (Math.abs(targetShift) > width / 2) {
+            targetShift = 0;
+        }
+        
+        windTime = 40; // Activa efecto visual de ráfaga por 40 frames
+        document.getElementById('lbl-evento').innerText = "¡RÁFAGA ACTIVA!";
+        document.getElementById('lbl-evento').style.color = "var(--accent-coral)";
+    }
+
+    function resetSim() {
+        init();
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById('tab-' + tabName).style.display = 'block';
+        event.target.classList.add('active');
+    }
+
+    function update() {
+        // Transición suave del paisaje de error (simulando inercia de la planta física)
+        landscapeShift += (targetShift - landscapeShift) * 0.08;
+
+        if (windTime > 0) {
+            windTime--;
+            if (windTime === 0) {
+                document.getElementById('lbl-evento').innerText = "Física Estable";
+                document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+            }
+        }
+
+        // --- 1. FILTRO DE PARTÍCULAS (PF) ---
+        particles.forEach(p => {
+            // Predicción: Movimiento exploratorio (ruido de proceso)
+            p.x += (Math.random() - 0.5) * 35;
+            p.x = Math.max(20, Math.min(width - 20, p.x));
+            p.y = getErrorPosition(p.x, landscapeShift);
+
+            // Evaluación: Entre más abajo esté en pantalla (menor error), mayor peso.
+            // Distancia al fondo absoluto del canvas
+            let distanceToBottom = height - p.y; 
+            p.weight = distanceToBottom * distanceToBottom; // Exponencial para premiar valles
+        });
+
+        // Normalización
+        let totalW = particles.reduce((sum, p) => sum + p.weight, 0);
+        if (totalW > 0) particles.forEach(p => p.weight /= totalW);
+
+        // Resampleo Estocástico (Cada pocos frames para estabilidad visual)
+        if (Math.random() > 0.75) {
+            particles.sort((a, b) => b.weight - a.weight);
+            // El 50% mejor sobrevive y se duplica con pequeña variación, el peor muere
+            for (let i = Math.floor(NUM_PARTICLES / 2); i < NUM_PARTICLES; i++) {
+                let parent = particles[Math.floor(Math.random() * (NUM_PARTICLES / 2))];
+                particles[i].x = parent.x + (Math.random() - 0.5) * 15;
+            }
+        }
+
+        // --- 2. DESCENSO DE GRADIENTE (GD) ---
+        let delta = 3;
+        let yLeft = getErrorPosition(gdPoint.x - delta, landscapeShift);
+        let yRight = getErrorPosition(gdPoint.x + delta, landscapeShift);
+        
+        // Queremos ir hacia abajo en el canvas (mayor Y significa menor error real)
+        let gradient = (yRight - yLeft) / (2 * delta);
+        
+        // Aplicar paso de aprendizaje
+        gdPoint.x += gradient * 12; 
+        gdPoint.x = Math.max(20, Math.min(width - 20, gdPoint.x));
+        gdPoint.y = getErrorPosition(gdPoint.x, landscapeShift);
+
+        // --- Actualizar Métricas de Error ---
+        // Busquemos el promedio de Y de las partículas frente al Y de Gradiente
+        let avgY_PF = particles.reduce((sum, p) => sum + p.y, 0) / NUM_PARTICLES;
+        
+        // Convertir la Y visual a una métrica de error abstracta (menor es mejor)
+        let errorPF = Math.max(0, (avgY_PF / height)).toFixed(2);
+        let errorGD = Math.max(0, (gdPoint.y / height)).toFixed(2);
+
+        document.getElementById('lbl-err-pf').innerText = errorPF;
+        document.getElementById('lbl-err-gd').innerText = errorGD;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Efecto visual de viento de fondo
+        if (windTime > 0) {
+            ctx.fillStyle = `rgba(0, 242, 255, ${windTime * 0.005})`;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        // Dibujar Cuadrícula de fondo
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        }
+
+        // Dibujar la Curva de Error Real (Línea Azul)
+        ctx.beginPath();
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(0, 242, 255, 0.4)';
+        for (let x = 0; x < width; x++) {
+            let y = getErrorPosition(x, landscapeShift);
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0; // Reset
+
+        // Dibujar Partículas (Filtro de Partículas)
+        particles.forEach(p => {
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Línea guía tenue hacia el fondo
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.08)';
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, height); ctx.stroke();
+        });
+
+        // Dibujar Nodo de Descenso de Gradiente (Punto Amarillo Grande)
+        ctx.fillStyle = '#ffde59';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ffde59';
+        ctx.beginPath();
+        ctx.arc(gdPoint.x, gdPoint.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Bucle de animación
+        update();
+        requestAnimationFrame(draw);
+    }
+
+    // Inicializar todo por primera vez
+    window.addEventListener('resize', () => {
+        width = canvas.width = canvas.offsetWidth;
+        init();
+    });
+    
+    init();
+    draw();
+</script>
+
+</body>
+</html>

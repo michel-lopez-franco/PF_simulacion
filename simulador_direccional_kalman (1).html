@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio de Optimización y Tracking Dinámico - RHONN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-cyan: #00f2ff;
+            --accent-yellow: #ffde59;
+            --accent-coral: #f43f5e;
+            --accent-orange: #f97316;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            max-width: 1000px;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        @media (min-width: 1100px) {
+            .dashboard {
+                grid-template-columns: 380px 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 650px;
+            overflow-y: auto;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            margin-bottom: -12px;
+        }
+
+        .tab-content {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+
+        .tab-content h3 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-content ul {
+            list-style: none;
+            margin-top: 5px;
+        }
+
+        .tab-content li {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0,0,0,0.15);
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #475569;
+        }
+
+        .simulation-container {
+            position: relative;
+            background-color: #0b1329;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            width: 100%;
+            height: 460px;
+            background: #050b14;
+        }
+
+        .controls-bar {
+            background-color: #111827;
+            padding: 15px 20px;
+            border-top: 1px solid #334155;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button.action-btn {
+            font-family: 'Urbanist', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-wind-left { background-color: #0284c7; color: white; }
+        .btn-wind-left:hover { background-color: #0ea5e9; box-shadow: 0 0 12px rgba(14, 165, 233, 0.5); }
+
+        .btn-wind-right { background-color: #0369a1; color: white; }
+        .btn-wind-right:hover { background-color: #0284c7; box-shadow: 0 0 12px rgba(2, 132, 199, 0.5); }
+        
+        .btn-change-func { background-color: var(--accent-purple); color: white; }
+        .btn-change-func:hover { background-color: #c084fc; box-shadow: 0 0 12px rgba(168, 85, 247, 0.5); }
+
+        .btn-secondary { background-color: #475569; color: white; }
+        .btn-secondary:hover { background-color: #64748b; }
+
+        .metrics-grid {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            border: 1px solid #334155;
+            display: grid;
+            grid-template-columns: auto auto;
+            column-gap: 15px;
+            row-gap: 4px;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .metric-val { text-align: right; font-weight: bold; }
+
+        .legend-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            font-size: 0.75rem;
+        }
+
+        @media (min-width: 600px) {
+            .legend-container { grid-template-columns: repeat(5, auto); }
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Filtros Bayesianos vs Gradiente en Tracking No Lineal (RHONN)</h1>
+    <p>Simulador Avanzado: Control manual de perturbaciones direccionales (Viento Izquierda / Derecha) y análisis estructural.</p>
+</header>
+
+<div class="dashboard">
+    <!-- Panel Izquierdo: Control y Teoría -->
+    <div class="panel">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('teoria')">Perturbación Manual</button>
+            <button class="tab-btn" onclick="switchTab('analisis')">Comportamiento</button>
+        </div>
+
+        <div id="tab-teoria" class="tab-content">
+            <h3><i class="fas fa-sliders-h" style="color: var(--accent-cyan);"></i> Pruebas Controladas</h3>
+            <p>Los botones de ráfaga ahora aplican un desplazamiento fijo y controlado. Esto te permite evaluar numéricamente el tiempo de convergencia:</p>
+            <ul>
+                <li><strong>Ráfaga Izquierda:</strong> Mueve el mapa entero de forma determinista hacia la izquierda.</li>
+                <li><strong>Ráfaga Derecha:</strong> Mueve el mapa entero de forma determinista hacia la derecha.</li>
+            </ul>
+            <p style="margin-top: 10px;">Compara cómo responden el EKF, UKF y Gradiente (locales) persiguiendo el pozo de error de manera fluida, frente al PF que rápidamente destruye y regenera muestras en la posición final.</p>
+        </div>
+
+        <div id="tab-analisis" class="tab-content" style="display: none;">
+            <h3><i class="fas fa-chart-bar" style="color: var(--accent-purple);"></i> Diagnóstico Clínico</h3>
+            <p><strong>Desplazamiento Progresivo (Viento):</strong> Al controlar la dirección, notarás que los filtros Kalman y el Gradiente funcionan bien en pequeños pasos consecutivos, ya que la estimación previa sirve de guía inmediata.</p>
+            <p style="margin-top: 10px;"><strong>Mutación Estructural:</strong> Al cambiar la ecuación, la historia previa de covarianza de Kalman y la posición de Gradiente quedan obsoletas, evidenciando por qué el Filtro de Partículas es ideal para fallas severas o reinicios "a ciegas".</p>
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Simulación Interactiva Completa -->
+    <div class="simulation-container">
+        <!-- Dashboard de Métricas -->
+        <div class="metrics-grid">
+            <div style="color: var(--accent-cyan);">Estado Sistema:</div>
+            <div id="lbl-evento" class="metric-val" style="color: var(--accent-cyan);">Estable</div>
+            
+            <div style="color: var(--accent-coral);">Error PF (Partículas):</div>
+            <div id="err-pf" class="metric-val" style="color: var(--accent-coral);">0.0 px</div>
+
+            <div style="color: var(--accent-green);">Error UKF (Unscented):</div>
+            <div id="err-ukf" class="metric-val" style="color: var(--accent-green);">0.0 px</div>
+
+            <div style="color: var(--accent-orange);">Error EKF (Extendido):</div>
+            <div id="err-ekf" class="metric-val" style="color: var(--accent-orange);">0.0 px</div>
+            
+            <div style="color: var(--accent-yellow);">Error GD (Gradiente):</div>
+            <div id="err-gd" class="metric-val" style="color: var(--accent-yellow);">0.0 px</div>
+        </div>
+
+        <canvas id="simCanvas"></canvas>
+
+        <div class="controls-bar">
+            <div class="btn-group">
+                <button class="action-btn btn-wind-left" onclick="triggerWindManual(-1)">
+                    <i class="fas fa-arrow-left"></i> VIENTO IZQ
+                </button>
+                <button class="action-btn btn-wind-right" onclick="triggerWindManual(1)">
+                    VIENTO DER <i class="fas fa-arrow-right"></i>
+                </button>
+                <button class="action-btn btn-change-func" onclick="changeEquationStructure()">
+                    <i class="fas fa-project-diagram"></i> MUTAR ECUACIÓN
+                </button>
+                <button class="action-btn btn-secondary" onclick="resetSim()">
+                    <i class="fas fa-undo"></i> REINICIAR
+                </button>
+            </div>
+
+            <div class="legend-container">
+                <div class="legend-item"><div class="dot" style="background: var(--accent-cyan);"></div> Curva Error</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-coral);"></div> PF</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-green);"></div> UKF</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-orange);"></div> EKF</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-yellow);"></div> GD</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = canvas.width = canvas.offsetWidth;
+    let height = canvas.height = 460;
+
+    // Variables de control de la planta
+    let landscapeShift = 0;
+    let targetShift = 0;
+    let eqType = 0;
+    let flashTime = 0;
+    let flashColor = "rgba(0, 242, 255, 0.1)";
+
+    // Estructuras de datos de estimadores
+    let particles = [];
+    const NUM_PARTICLES = 35;
+
+    let gdPoint = { x: 0, y: 0 };
+    let ekfState = { x: 0, P: 100 };
+    let ukfState = { x: 0, P: 120 };
+
+    function getErrorValue(x, shift) {
+        const nx = (x - width / 2 + shift) / 65;
+        if (eqType === 0) {
+            return 0.3 * Math.sin(1.1 * nx) + 0.25 * Math.cos(3.2 * nx) + 0.1 * Math.sin(5.5 * nx) + 0.55;
+        } else if (eqType === 1) {
+            return 0.4 * Math.cos(0.9 * nx) + 0.22 * Math.sin(4.2 * nx) + 0.12 * Math.cos(6.5 * nx) + 0.5;
+        } else {
+            return 0.35 * Math.sin(1.8 * nx) * Math.cos(0.6 * nx) + 0.25 * Math.sin(4.8 * nx) + 0.58;
+        }
+    }
+
+    function getCanvasY(x, shift) {
+        const errVal = getErrorValue(x, shift);
+        return height - 85 - (errVal * 240);
+    }
+
+    function init() {
+        particles = [];
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+            particles.push({ x: Math.random() * (width - 60) + 30, y: 0, weight: 1/NUM_PARTICLES });
+        }
+
+        let initX = width * 0.5; // Comenzar al centro para dar espacio a ambos lados
+        gdPoint.x = initX;
+        ekfState.x = initX; ekfState.P = 150;
+        ukfState.x = initX; ukfState.P = 150;
+
+        landscapeShift = 0;
+        targetShift = 0;
+        flashTime = 0;
+        document.getElementById('lbl-evento').innerText = "Estable";
+        document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+    }
+
+    // Nueva función para ráfagas direccionales y no aleatorias
+    function triggerWindManual(direction) {
+        const fixedStep = 150; // Desplazamiento fijo en pixeles por clic
+        targetShift += direction * fixedStep;
+        
+        // Evitar que la función se salga por completo de los límites visibles del canvas
+        const maxLimit = width * 0.8;
+        if (targetShift > maxLimit) targetShift = maxLimit;
+        if (targetShift < -maxLimit) targetShift = -maxLimit;
+        
+        flashColor = direction === 1 ? "rgba(3, 105, 161, 0.15)" : "rgba(2, 132, 199, 0.15)";
+        flashTime = 20;
+        
+        document.getElementById('lbl-evento').innerText = direction === 1 ? "Viento → Der" : "Viento ← Izq";
+        document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+    }
+
+    function changeEquationStructure() {
+        eqType = (eqType + 1) % 3;
+        flashColor = "rgba(168, 85, 247, 0.2)";
+        flashTime = 30;
+        document.getElementById('lbl-evento').innerText = "Función Mutada";
+        document.getElementById('lbl-evento').style.color = "var(--accent-purple)";
+    }
+
+    function resetSim() {
+        eqType = 0;
+        init();
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tabName).style.display = 'block';
+        event.target.classList.add('active');
+    }
+
+    function findTrueMinimumX() {
+        let minVal = Infinity; let minX = 40;
+        for (let x = 20; x < width - 20; x++) {
+            let val = getErrorValue(x, landscapeShift);
+            if (val < minVal) { minVal = val; minX = x; }
+        }
+        return minX;
+    }
+
+    function update() {
+        landscapeShift += (targetShift - landscapeShift) * 0.08;
+        if (flashTime > 0) flashTime--;
+
+        const trueGlobalMinX = findTrueMinimumX();
+        const delta = 2;
+
+        // --- 1. FILTRO DE PARTÍCULAS (PF) ---
+        particles.forEach(p => {
+            p.x += (Math.random() - 0.5) * 38;
+            p.x = Math.max(20, Math.min(width - 20, p.x));
+            p.y = getCanvasY(p.x, landscapeShift);
+            p.weight = Math.pow(p.y, 5); 
+        });
+        let totalW = particles.reduce((sum, p) => sum + p.weight, 0);
+        if (totalW > 0) particles.forEach(p => p.weight /= totalW);
+        if (Math.random() > 0.75) {
+            particles.sort((a, b) => b.weight - a.weight);
+            for (let i = Math.floor(NUM_PARTICLES * 0.4); i < NUM_PARTICLES; i++) {
+                let parent = particles[Math.floor(Math.random() * (NUM_PARTICLES * 0.25))];
+                particles[i].x = parent.x + (Math.random() - 0.5) * 15;
+            }
+        }
+
+        // --- 2. DESCENSO DE GRADIENTE (GD) ---
+        let yL_gd = getCanvasY(gdPoint.x - delta, landscapeShift);
+        let yR_gd = getCanvasY(gdPoint.x + delta, landscapeShift);
+        let grad_gd = (yR_gd - yL_gd) / (2 * delta);
+        gdPoint.x += grad_gd * 12 + (Math.random() - 0.5) * 0.4;
+        gdPoint.x = Math.max(20, Math.min(width - 20, gdPoint.x));
+        gdPoint.y = getCanvasY(gdPoint.x, landscapeShift);
+
+        // --- 3. FILTRO DE KALMAN EXTENDIDO (EKF) ---
+        ekfState.P += 4.0; 
+        let yL_ekf = getCanvasY(ekfState.x - delta, landscapeShift);
+        let yR_ekf = getCanvasY(ekfState.x + delta, landscapeShift);
+        let H = (yR_ekf - yL_ekf) / (2 * delta); 
+        
+        let R = 35; 
+        let S = H * ekfState.P * H + R;
+        let K_ekf = (ekfState.P * H) / S;
+        
+        ekfState.x += K_ekf * 15; 
+        ekfState.P = (1 - K_ekf * H) * ekfState.P;
+        ekfState.x = Math.max(20, Math.min(width - 20, ekfState.x));
+
+        // --- 4. FILTRO DE KALMAN UNSCENTED (UKF) ---
+        ukfState.P += 5.0; 
+        let sigmaSpace = Math.sqrt(Math.max(1, ukfState.P));
+        let sigmas = [ukfState.x, ukfState.x - sigmaSpace, ukfState.x + sigmaSpace];
+        
+        let outputs = sigmas.map(s => getCanvasY(Math.max(20, Math.min(width-20, s)), landscapeShift));
+        
+        let meanOutput = (outputs[0] + outputs[1] + outputs[2]) / 3;
+        let CrossCov = 0; let OutputCov = 0;
+        for(let i=0; i<3; i++) {
+            CrossCov += (sigmas[i] - ukfState.x) * (outputs[i] - meanOutput);
+            OutputCov += (outputs[i] - meanOutput) * (outputs[i] - meanOutput);
+        }
+        CrossCov /= 3; OutputCov /= 3;
+        
+        let R_u = 40;
+        let K_ukf = CrossCov / (OutputCov + R_u);
+        
+        let ukfGrad = (outputs[2] - outputs[1]) / (2 * sigmaSpace || 1);
+        ukfState.x += ukfGrad * 14;
+        ukfState.P = ukfState.P - K_ukf * (OutputCov + R_u) * K_ukf;
+        ukfState.x = Math.max(20, Math.min(width - 20, ukfState.x));
+
+        // --- Actualización de texto de Errores ---
+        let avgX_PF = particles.reduce((sum, p) => sum + p.x, 0) / NUM_PARTICLES;
+        document.getElementById('err-pf').innerText = Math.abs(avgX_PF - trueGlobalMinX).toFixed(1) + " px";
+        document.getElementById('err-gd').innerText = Math.abs(gdPoint.x - trueGlobalMinX).toFixed(1) + " px";
+        document.getElementById('err-ekf').innerText = Math.abs(ekfState.x - trueGlobalMinX).toFixed(1) + " px";
+        document.getElementById('err-ukf').innerText = Math.abs(ukfState.x - trueGlobalMinX).toFixed(1) + " px";
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+
+        if (flashTime > 0) {
+            ctx.fillStyle = flashColor;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+        for (let x = 0; x < width; x += 50) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); stroke = ctx.stroke();
+        }
+
+        ctx.beginPath(); ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 3;
+        for (let x = 0; x < width; x++) {
+            let y = getCanvasY(x, landscapeShift);
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        particles.forEach(p => {
+            ctx.fillStyle = '#f43f5e'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+        });
+
+        let ukfY = getCanvasY(ukfState.x, landscapeShift);
+        ctx.fillStyle = '#22c55e'; ctx.shadowBlur = 10; ctx.shadowColor = '#22c55e';
+        ctx.beginPath(); ctx.arc(ukfState.x, ukfY, 8, 0, Math.PI * 2); ctx.fill();
+
+        let ekfY = getCanvasY(ekfState.x, landscapeShift);
+        ctx.fillStyle = '#f97316'; ctx.shadowBlur = 10; ctx.shadowColor = '#f97316';
+        ctx.beginPath(); ctx.arc(ekfState.x, ekfY, 8, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#ffde59'; ctx.shadowBlur = 10; ctx.shadowColor = '#ffde59';
+        ctx.beginPath(); ctx.arc(gdPoint.x, gdPoint.y, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        update();
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', () => {
+        width = canvas.width = canvas.offsetWidth;
+        init();
+    });
+    
+    init();
+    draw();
+</script>
+
+</body>
+</html>

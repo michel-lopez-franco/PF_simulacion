@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro de Partículas con Ruido y Perturbaciones</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-color: #e2e8f0;
+            --particle-color: #f43f5e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        canvas {
+            background-color: #0b0f19;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .slider-group label {
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .controls-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #7dd3fc;
+            transform: translateY(-2px);
+        }
+
+        .info-panel {
+            padding: 15px;
+            background-color: #0f172a;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 30px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: #090d16;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+
+        .highlight {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>RHONN: Filtro de Partículas en Entornos con Ruido</h1>
+        <p>Simulación adaptativa ante perturbaciones del sistema y errores de lectura en sensores.</p>
+    </header>
+
+    <div class="container">
+        <div class="metrics">
+            <div>Fase: <span id="current-phase" class="highlight">-</span></div>
+            <div>Iteración: <span id="iteration-count" class="highlight">0</span></div>
+        </div>
+
+        <canvas id="simulationCanvas" width="800" height="400"></canvas>
+
+        <div class="controls-grid">
+            <div class="slider-group">
+                <label>Perturbación del Sistema (Deriva): <span id="val-sys" class="highlight">20</span></label>
+                <input type="range" id="slide-sys" min="0" max="60" value="20">
+            </div>
+            <div class="slider-group">
+                <label>Ruido del Sensor (Incertidumbre): <span id="val-meas" class="highlight">30</span></label>
+                <input type="range" id="slide-meas" min="0" max="80" value="30">
+            </div>
+        </div>
+
+        <div class="controls-buttons">
+            <button id="btn-step">Siguiente Paso</button>
+            <button id="btn-auto">Auto-Ejecución</button>
+            <button id="btn-reset" style="background-color: #64748b; color: white;">Reiniciar</button>
+        </div>
+
+        <div class="info-panel" id="info-text">
+            Cargando simulación...
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Elementos UI
+        const txtPhase = document.getElementById('current-phase');
+        const txtIteration = document.getElementById('iteration-count');
+        const txtInfo = document.getElementById('info-text');
+        const btnStep = document.getElementById('btn-step');
+        const btnAuto = document.getElementById('btn-auto');
+        const btnReset = document.getElementById('btn-reset');
+
+        const slideSys = document.getElementById('slide-sys');
+        const slideMeas = document.getElementById('slide-meas');
+        const valSys = document.getElementById('val-sys');
+        const valMeas = document.getElementById('val-meas');
+
+        // Parámetros dinámicos
+        const NUM_PARTICLES = 50;
+        let particles = [];
+        let iteration = 0;
+        let phase = 0;
+        let isAuto = false;
+        let autoInterval = null;
+
+        // Variables de Ruido
+        let systemNoiseParam = parseInt(slideSys.value);
+        let measurementNoiseParam = parseInt(slideMeas.value);
+        let landscapeShift = 0; // Desplazamiento acumulado del sistema
+
+        // Escuchadores de Sliders
+        slideSys.addEventListener('input', (e) => { systemNoiseParam = parseInt(e.target.value); valSys.innerText = e.target.value; });
+        slideMeas.addEventListener('input', (e) => { measurementNoiseParam = parseInt(e.target.value); valMeas.innerText = e.target.value; });
+
+        // Función del Paisaje de Error Original + Desplazamiento Dinámico (Perturbación)
+        function errorFunction(x) {
+            // Mapeo a un rango abstracto e incorporamos el desplazamiento del sistema
+            const nx = ((x - canvas.width / 2) + landscapeShift) / 100;
+            const ny = 0.3 * Math.sin(2 * nx) + 0.2 * Math.cos(5 * nx) + 0.1 * Math.sin(10 * nx) + 0.5;
+            return canvas.height - (ny * 260 + 70);
+        }
+
+        function initParticles() {
+            particles = [];
+            landscapeShift = 0;
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: 0,
+                    weight: 1 / NUM_PARTICLES,
+                    lastNoise: 0 // Para almacenar visualmente el error de medición individual
+                });
+            }
+            updateParticlePositions(false);
+            iteration = 0;
+            phase = 0;
+            txtPhase.innerText = "Listo";
+            txtIteration.innerText = iteration;
+            txtInfo.innerHTML = "<strong>Entorno listo:</strong> Sube los sliders para inyectar caos. La <strong>zona difusa azul</strong> representa el margen de error del sensor. Presiona 'Auto-Ejecución' para ver la magia de la adaptación.";
+            draw();
+        }
+
+        function updateParticlePositions(applySystemNoise = false) {
+            if (applySystemNoise && systemNoiseParam > 0) {
+                // La perturbación del sistema hace que el mínimo global real se mueva de sitio
+                landscapeShift += (Math.random() - 0.5) * systemNoiseParam;
+            }
+            particles.forEach(p => {
+                p.y = errorFunction(p.x);
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Dibujar Banda de Incertidumbre del Sensor (Ruido de Medición)
+            if (measurementNoiseParam > 0) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.07)';
+                ctx.beginPath();
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = errorFunction(x);
+                    if (x === 0) ctx.moveTo(x, y - measurementNoiseParam);
+                    else ctx.lineTo(x, y - measurementNoiseParam);
+                }
+                for (let x = canvas.width - 1; x >= 0; x--) {
+                    const y = errorFunction(x);
+                    ctx.lineTo(x, y + measurementNoiseParam);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // 2. Dibujar la curva real de error
+            ctx.beginPath();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            for (let x = 0; x < canvas.width; x++) {
+                const y = errorFunction(x);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 3. Dibujar las partículas
+            particles.forEach(p => {
+                ctx.beginPath();
+                const radius = 4 + (p.weight * NUM_PARTICLES * 4);
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+
+                if (phase === 2) {
+                    // Si acabamos de medir con ruido, se vuelven amarillas/verdes si tienen buen peso
+                    const intensity = Math.min(255, Math.floor(p.weight * NUM_PARTICLES * 50));
+                    ctx.fillStyle = `rgb(244, ${intensity}, 94)`;
+                } else {
+                    ctx.fillStyle = '#f43f5e';
+                }
+
+                ctx.shadowBlur = radius;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Dibujar el error de medición percibido (línea pequeña vertical que indica el engaño del sensor)
+                if (phase === 2 && measurementNoiseParam > 0) {
+                    ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x, p.y + p.lastNoise);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // --- ALGORITMO CON INCORPORACIÓN DE RUIDO ---
+
+        function predictStep() {
+            // A) Mover partículas (Exploración propia del filtro)
+            particles.forEach(p => {
+                const jitter = (Math.random() - 0.5) * 50;
+                p.x = Math.max(10, Math.min(canvas.width - 10, p.x + jitter));
+            });
+
+            // B) Aplicar Perturbación del Sistema (El mundo real cambia)
+            updateParticlePositions(true);
+
+            phase = 1;
+            txtPhase.innerText = "1. Predicción + Perturbación";
+            txtInfo.innerHTML = "<strong>¿Qué pasó?</strong> El terreno se ha movido debido a la <em>Perturbación del Sistema</em>. Las partículas también se han dispersado (ruido de proceso) intentando abarcar el nuevo posible espacio del peso.";
+            draw();
+        }
+
+        function updateStep() {
+            let totalWeight = 0;
+
+            particles.forEach(p => {
+                const errorReal = canvas.height - p.y;
+
+                // C) Aplicar Ruido de Medición (El sensor miente)
+                const sensorNoise = (Math.random() - 0.5) * measurementNoiseParam * 2;
+                p.lastNoise = sensorNoise; // Guardar para el gráfico
+
+                const errorPercibido = Math.max(1, errorReal + sensorNoise);
+
+                // Calcular importancia basada en la medición ruidosa
+                p.weight = 1 / (errorPercibido + 10);
+                totalWeight += p.weight;
+            });
+
+            // Normalizar
+            particles.forEach(p => p.weight /= totalWeight);
+
+            phase = 2;
+            txtPhase.innerText = "2. Medición con Error de Sensor";
+            txtInfo.innerHTML = "<strong>Fase de Evaluación:</strong> Las partículas midieron su error, pero el sensor tiene ruido (banda azul claro). Las líneas amarillas verticales muestran qué tan 'engañada' fue cada partícula. Aun con este engaño, la estadística colectiva ayuda a identificar el área correcta.";
+            draw();
+        }
+
+        function resampleStep() {
+            let newParticles = [];
+
+            // Ruleta estocástica de selección
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const r = Math.random();
+                let cumulativeWeight = 0;
+                let selectedParticle = particles[0];
+
+                for (let j = 0; j < NUM_PARTICLES; j++) {
+                    cumulativeWeight += particles[j].weight;
+                    if (r <= cumulativeWeight) {
+                        selectedParticle = particles[j];
+                        break;
+                    }
+                }
+                newParticles.push({
+                    x: selectedParticle.x + (Math.random() - 0.5) * 4, // Pequeña mutación
+                    y: selectedParticle.y,
+                    weight: 1 / NUM_PARTICLES,
+                    lastNoise: 0
+                });
+            }
+
+            particles = newParticles;
+            updateParticlePositions(false);
+            iteration++;
+            phase = 0;
+
+            txtPhase.innerText = "3. Resampleo Exitoso";
+            txtIteration.innerText = iteration;
+            txtInfo.innerHTML = "<strong>Fase de Resampleo:</strong> A pesar de que el sensor mintió y el sistema se movió, la población descarta las zonas totalmente erróneas y se concentra firmemente alrededor del nuevo mínimo. ¡Esto es robustez!";
+            draw();
+        }
+
+        function nextStep() {
+            if (phase === 0) predictStep();
+            else if (phase === 1) updateStep();
+            else if (phase === 2) resampleStep();
+        }
+
+        function toggleAuto() {
+            if (isAuto) {
+                clearInterval(autoInterval);
+                btnAuto.innerText = "Auto-Ejecución";
+                btnStep.disabled = false;
+            } else {
+                btnAuto.innerText = "Pausar";
+                btnStep.disabled = true;
+                autoInterval = setInterval(nextStep, 400);
+            }
+            isAuto = !isAuto;
+        }
+
+        btnStep.addEventListener('click', nextStep);
+        btnAuto.addEventListener('click', toggleAuto);
+        btnReset.addEventListener('click', () => {
+            if (isAuto) toggleAuto();
+            initParticles();
+        });
+
+        initParticles();
+    </script>
+
+</body>
+
+</html>

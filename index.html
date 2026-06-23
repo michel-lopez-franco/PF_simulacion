@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Filtro de Partículas para RHONN</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-color: #e2e8f0;
+            --particle-color: #f43f5e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            max-width: 800px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        canvas {
+            background-color: #0b0f19;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            cursor: pointer;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #7dd3fc;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .info-panel {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #0f172a;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 30px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: #090d16;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+
+        .highlight {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Entrenamiento de RHONN con Filtro de Partículas</h1>
+        <p>Optimización de un solo peso ($w$) en una superficie de error no lineal y llena de trampas (mínimos locales).
+        </p>
+    </header>
+
+    <div class="container">
+        <div class="metrics">
+            <div>Fase Actual: <span id="current-phase" class="highlight">Inicializando</span></div>
+            <div>Iteración: <span id="iteration-count" class="highlight">0</span></div>
+        </div>
+
+        <canvas id="simulationCanvas" width="800" height="400"></canvas>
+
+        <div class="controls">
+            <button id="btn-step">Siguiente Paso</button>
+            <button id="btn-auto">Auto-Ejecución</button>
+            <button id="btn-reset" style="background-color: #64748b; color: white;">Reiniciar</button>
+        </div>
+
+        <div class="info-panel" id="info-text">
+            <strong>¿Qué estás viendo?</strong><br>
+            La línea azul es la <strong>Función de Error</strong> de la red. Las esferas rojas son las
+            <strong>Partículas</strong>. Cada partícula propone un valor diferente para el peso de la RHONN. Presiona
+            "Siguiente Paso" o "Auto-Ejecución" para ver cómo interactúan.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Elementos de la interfaz
+        const txtPhase = document.getElementById('current-phase');
+        const txtIteration = document.getElementById('iteration-count');
+        const txtInfo = document.getElementById('info-text');
+        const btnStep = document.getElementById('btn-step');
+        const btnAuto = document.getElementById('btn-auto');
+        const btnReset = document.getElementById('btn-reset');
+
+        // Configuración de la simulación
+        const NUM_PARTICLES = 40;
+        let particles = [];
+        let iteration = 0;
+        let phase = 0; // 0: Predicción, 1: Actualización (Pesos), 2: Resampleo
+        let isAuto = false;
+        let autoInterval = null;
+
+        // Definición de la función de error (Paisaje)
+        // Queremos una curva con múltiples valles, donde el óptimo global esté bien definido.
+        function errorFunction(x) {
+            // x mapeado a un rango conceptual de -3 a 3
+            const nx = (x - canvas.width / 2) / 100;
+            // E(x) = combinacion de senos y cosenos para simular no-linealidad severa de una RHONN
+            const ny = 0.3 * Math.sin(2 * nx) + 0.2 * Math.cos(5 * nx) + 0.1 * Math.sin(10 * nx) + 0.5;
+            // Devolver posición en Y del canvas (invertido porque Y crece hacia abajo)
+            return canvas.height - (ny * 300 + 50);
+        }
+
+        // Inicializar Partículas
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: 0,
+                    weight: 1 / NUM_PARTICLES,
+                    id: i
+                });
+            }
+            updateParticleY();
+            iteration = 0;
+            phase = 0;
+            txtPhase.innerText = "Partículas Dispersas";
+            txtIteration.innerText = iteration;
+            txtInfo.innerHTML = "<strong>Inicio:</strong> Las partículas se generan de manera aleatoria en todo el espacio de búsqueda del peso. No tienen idea de dónde está el mejor valor.";
+            draw();
+        }
+
+        function updateParticleY() {
+            particles.forEach(p => {
+                p.y = errorFunction(p.x);
+            });
+        }
+
+        // Dibujar el escenario
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Dibujar la curva de error
+            ctx.beginPath();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            for (let x = 0; x < canvas.width; x++) {
+                const y = errorFunction(x);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Dibujar texto indicador de error mínimo
+            ctx.fillStyle = '#10b981';
+            ctx.font = '12px sans-serif';
+            ctx.fillText("Mínimo Global (Menor Error)", canvas.width / 2 + 120, canvas.height - 40);
+
+            // 2. Dibujar las partículas
+            particles.forEach(p => {
+                ctx.beginPath();
+                // El tamaño depende de su importancia (peso del filtro) en las fases avanzadas
+                const radius = 4 + (p.weight * NUM_PARTICLES * 4);
+
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+
+                // Color cambia según la fase
+                if (phase === 1) {
+                    // En fase de evaluación, las mejores brillan más verde/amarillo
+                    const intensity = Math.min(255, Math.floor(p.weight * NUM_PARTICLES * 50));
+                    ctx.fillStyle = `rgb(${244}, ${intensity}, ${94})`;
+                } else {
+                    ctx.fillStyle = '#f43f5e';
+                }
+
+                ctx.shadowBlur = radius / 2;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset
+
+                // Dibujar una línea vertical fantasma para guiar el peso en el eje X
+                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x, canvas.height);
+                ctx.stroke();
+            });
+        }
+
+        // --- ALGORITMO FILTRO DE PARTÍCULAS ---
+
+        // 1. Predicción (Añadir ruido/exploración)
+        function predictStep() {
+            particles.forEach(p => {
+                // Añadimos ruido gaussiano/uniforme para simular la dinámica o incertidumbre
+                const jitter = (Math.random() - 0.5) * 40;
+                p.x = Math.max(10, Math.min(canvas.width - 10, p.x + jitter));
+            });
+            updateParticleY();
+            phase = 1;
+            txtPhase.innerText = "1. Predicción (Exploración)";
+            txtInfo.innerHTML = "<strong>Fase de Predicción:</strong> Se añade un pequeño ruido aleatorio a las partículas. Esto les permite explorar los alrededores del peso actual para descubrir nuevas zonas.";
+            draw();
+        }
+
+        // 2. Actualización (Calcular importancia basada en el error de la RHONN)
+        function updateStep() {
+            let totalWeight = 0;
+
+            // El peso del filtro es inversamente proporcional al error en el canvas
+            // (A menor Y en pantalla, mayor es el error real, por lo que invertimos la lógica para que los valles profundos tengan mayor peso)
+            particles.forEach(p => {
+                const errorReal = canvas.height - p.y; // Entre menor altura visual, mayor error.
+                // Convertimos error bajo en peso alto
+                p.weight = 1 / (errorReal + 5);
+                totalWeight += p.weight;
+            });
+
+            // Normalizar pesos para que sumen 1
+            particles.forEach(p => {
+                p.weight /= totalWeight;
+            });
+
+            phase = 2;
+            txtPhase.innerText = "2. Evaluación de Pesos";
+            txtInfo.innerHTML = "<strong>Fase de Evaluación:</strong> Se mide el error de la RHONN con cada partícula. Las que caen en valles profundos (bajo error) ganan más importancia y <strong>crecen de tamaño</strong>. Las atrapadas en picos sufren penalizaciones.";
+            draw();
+        }
+
+        // 3. Resampleo (Supervivencia del más apto)
+        function resampleStep() {
+            let newParticles = [];
+
+            // Muestreo por ruleta (Sistemático / Ruleta estándar)
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const r = Math.random();
+                let cumulativeWeight = 0;
+                let selectedParticle = particles[0];
+
+                for (let j = 0; j < NUM_PARTICLES; j++) {
+                    cumulativeWeight += particles[j].weight;
+                    if (r <= cumulativeWeight) {
+                        selectedParticle = particles[j];
+                        break;
+                    }
+                }
+                // Clonamos la partícula elegida (añadiendo una levísima variación para que no se encimen por completo)
+                newParticles.push({
+                    x: selectedParticle.x + (Math.random() - 0.5) * 2,
+                    y: selectedParticle.y,
+                    weight: 1 / NUM_PARTICLES,
+                    id: i
+                });
+            }
+
+            particles = newParticles;
+            updateParticleY();
+            iteration++;
+            phase = 0;
+
+            txtPhase.innerText = "3. Resampleo (Selección)";
+            txtIteration.innerText = iteration;
+            txtInfo.innerHTML = "<strong>Fase de Resampleo:</strong> ¡Selección natural! Las partículas con bajo rendimiento mueren. Las mejores se duplican. Nota cómo la población se empieza a concentrar en el mejor valle.";
+            draw();
+        }
+
+        // Controlador de flujo manual
+        function nextStep() {
+            if (phase === 0) predictStep();
+            else if (phase === 1) updateStep();
+            else if (phase === 2) resampleStep();
+        }
+
+        // Control de ejecución automática
+        function toggleAuto() {
+            if (isAuto) {
+                clearInterval(autoInterval);
+                btnAuto.innerText = "Auto-Ejecución";
+                btnStep.disabled = false;
+            } else {
+                btnAuto.innerText = "Pausar";
+                btnStep.disabled = true;
+                autoInterval = setInterval(nextStep, 600); // Cambia de paso cada 600ms
+            }
+            isAuto = !isAuto;
+        }
+
+        // Listeners de los botones
+        btnStep.addEventListener('click', nextStep);
+        btnAuto.addEventListener('click', toggleAuto);
+        btnReset.addEventListener('click', () => {
+            if (isAuto) toggleAuto();
+            initParticles();
+        });
+
+        // Iniciar al cargar la página
+        initParticles();
+    </script>
+
+</body>
+
+</html>

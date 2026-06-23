@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro de Partículas vs Descenso de Gradiente en RHONN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-cyan: #00f2ff;
+            --accent-yellow: #ffde59;
+            --accent-coral: #f43f5e;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            max-width: 900px;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.3rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            max-width: 1250px;
+            width: 100%;
+        }
+
+        @media (min-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            margin-bottom: -12px;
+        }
+
+        .tab-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .tab-content h3 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-content ul {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .tab-content li {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .tab-content li i {
+            margin-top: 4px;
+            font-size: 0.85rem;
+        }
+
+        .simulation-container {
+            position: relative;
+            background-color: #0b1329;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            width: 100%;
+            height: 450px;
+            background: #050b14;
+        }
+
+        .controls-bar {
+            background-color: #111827;
+            padding: 20px;
+            border-top: 1px solid #334155;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: 'Urbanist', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-wind {
+            background-color: var(--accent-cyan);
+            color: #0f172a;
+        }
+
+        .btn-wind:hover {
+            background-color: white;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
+        }
+
+        .btn-change-func {
+            background-color: #a855f7;
+            color: white;
+        }
+
+        .btn-change-func:hover {
+            background-color: #c084fc;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #64748b;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            border: 1px solid #334155;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .status-badge span {
+            color: var(--accent-cyan);
+        }
+
+        .highlight-box {
+            background: rgba(0, 242, 255, 0.05);
+            border-left: 4px solid var(--accent-cyan);
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Optimización Sincronizada para RHONN</h1>
+        <p>Corrección de alineación: Ambos algoritmos compitiendo en tiempo real por el mismo <strong>Mínimo Global
+                (Valle)</strong>.</p>
+    </header>
+
+    <div class="dashboard">
+        <div class="panel">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('teoria')">Lógica Corregida</button>
+                <button class="tab-btn" onclick="switchTab('comparativa')">Dinámica</button>
+            </div>
+
+            <div id="tab-teoria" class="tab-content">
+                <h3><i class="fas fa-bullseye" style="color: var(--accent-cyan);"></i> Búsqueda del Mínimo</h3>
+                <p>Se ha alineado el criterio de optimización. El objetivo de la RHONN es **minimizar el error** (los
+                    valles de la curva).</p>
+                <ul>
+                    <li><i class="fas fa-check" style="color: var(--accent-coral);"></i> <strong>PF (Rojo):</strong>
+                        Ahora calcula sus pesos inversamente proporcionales al error. Las partículas en los valles son
+                        las más aptas y sobreviven.</li>
+                    <li><i class="fas fa-check" style="color: var(--accent-yellow);"></i> <strong>GD
+                            (Amarillo):</strong> Sigue el vector negativo del gradiente para descender hacia los fondos.
+                    </li>
+                </ul>
+                <div class="highlight-box" style="margin-top: 15px;">
+                    Usa el botón morado para mutar por completo la topología matemática de la función y romper el mínimo
+                    anterior.
+                </div>
+            </div>
+
+            <div id="tab-comparativa" class="tab-content" style="display: none;">
+                <h3><i class="fas fa-sync-alt" style="color: #a855f7;"></i> Cambio Estructural vs Deriva</h3>
+                <p><strong>Ráfaga de Viento:</strong> Traslada lateralmente el entorno físico (mismo mínimo, diferente
+                    posición).</p>
+                <p style="margin-top: 10px;"><strong>Cambiar Ecuación:</strong> Modifica radicalmente la ecuación
+                    matemática interna. El mínimo global anterior desaparece y surge uno nuevo en otra región, simulando
+                    un cambio estructural drástico en la planta o sistema.</p>
+            </div>
+        </div>
+
+        <div class="simulation-container">
+            <div class="status-badge">
+                <div>Evento: <span id="lbl-evento">Estable</span></div>
+                <div>Distancia PF al Mín: <span id="lbl-err-pf" style="color: var(--accent-coral);">0.0</span></div>
+                <div>Distancia GD al Mín: <span id="lbl-err-gd" style="color: var(--accent-yellow);">0.0</span></div>
+            </div>
+
+            <canvas id="simCanvas"></canvas>
+
+            <div class="controls-bar">
+                <div class="btn-group">
+                    <button class="btn-wind" onclick="triggerWind()">
+                        <i class="fas fa-wind"></i> RÁFAGA (Desplazar)
+                    </button>
+                    <button class="btn-change-func" onclick="changeEquationStructure()">
+                        <i class="fas fa-calculator"></i> CAMBIAR ECUACIÓN
+                    </button>
+                    <button class="btn-secondary" onclick="resetSim()">
+                        <i class="fas fa-undo"></i> REINICIAR
+                    </button>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-cyan);"></div> Error Real
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-coral);"></div> PF (Mínimo)
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-yellow);"></div> GD (Mínimo)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = canvas.offsetWidth;
+        let height = canvas.height = 450;
+
+        // Estados dinámicos
+        let landscapeShift = 0;
+        let targetShift = 0;
+        let particles = [];
+        let gdPoint = { x: 150, y: 0 };
+        const NUM_PARTICLES = 40;
+        let flashTime = 0;
+        let flashColor = "rgba(0, 242, 255, 0.2)";
+
+        // Índices para alterar la estructura de la función
+        let eqType = 0;
+
+        // Retorna el valor numérico del error (Queremos ENCONTRAR EL MÍNIMO de este valor)
+        // Interpretación visual unificada: valles geométricos abajo = menor error numérico.
+        function getErrorValue(x, shift) {
+            const nx = (x - width / 2 + shift) / 65;
+
+            if (eqType === 0) {
+                return 0.3 * Math.sin(1.1 * nx) + 0.25 * Math.cos(3.2 * nx) + 0.1 * Math.sin(5.5 * nx) + 0.55;
+            } else if (eqType === 1) {
+                return 0.4 * Math.cos(0.8 * nx) + 0.2 * Math.sin(4.0 * nx) + 0.15 * Math.cos(7.0 * nx) + 0.5;
+            } else {
+                return 0.35 * Math.sin(2.0 * nx) * Math.cos(0.5 * nx) + 0.2 * Math.sin(5.0 * nx) + 0.6;
+            }
+        }
+
+        // Traduce el valor numérico de error a la coordenada Y del Canvas
+        function getCanvasY(x, shift) {
+            const errVal = getErrorValue(x, shift);
+            // Mapeo: Alto valor de error = Arriba en pantalla (Y chica)
+            // Bajo valor de error (Mínimo) = Abajo en pantalla (Y grande)
+            return height - 90 - (errVal * 230);
+        }
+
+        function init() {
+            particles = [];
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push({
+                    x: Math.random() * (width - 60) + 30,
+                    y: 0,
+                    weight: 1 / NUM_PARTICLES
+                });
+            }
+            gdPoint.x = width * 0.2;
+            landscapeShift = 0;
+            targetShift = 0;
+            flashTime = 0;
+            document.getElementById('lbl-evento').innerText = "Estable";
+            document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+        }
+
+        function triggerWind() {
+            const range = 180 + Math.random() * 120;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            targetShift += direction * range;
+
+            if (Math.abs(targetShift) > width / 2) targetShift = 0;
+
+            flashColor = "rgba(0, 242, 255, 0.15)";
+            flashTime = 30;
+            document.getElementById('lbl-evento').innerText = "Viento (Deriva)";
+            document.getElementById('lbl-evento').style.color = "var(--accent-cyan)";
+        }
+
+        function changeEquationStructure() {
+            // Cambia la ecuación matemática completa para romper el mapa previo
+            eqType = (eqType + 1) % 3;
+
+            flashColor = "rgba(168, 85, 247, 0.25)";
+            flashTime = 35;
+            document.getElementById('lbl-evento').innerText = "Nueva Ecuación";
+            document.getElementById('lbl-evento').style.color = "#c084fc";
+        }
+
+        function resetSim() {
+            eqType = 0;
+            init();
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        // Encuentra la ubicación exacta del mínimo absoluto real en pantalla para calcular estadísticas
+        function findTrueMinimumX() {
+            let minVal = Infinity;
+            let minX = 0;
+            for (let x = 10; x < width - 10; x++) {
+                let val = getErrorValue(x, landscapeShift);
+                if (val < minVal) {
+                    minVal = val;
+                    minX = x;
+                }
+            }
+            return minX;
+        }
+
+        function update() {
+            // Transición suave de la planta
+            landscapeShift += (targetShift - landscapeShift) * 0.08;
+
+            if (flashTime > 0) flashTime--;
+
+            let trueGlobalMinX = findTrueMinimumX();
+
+            // --- 1. FILTRO DE PARTÍCULAS (CORREGIDO) ---
+            particles.forEach(p => {
+                // Predicción estocástica
+                p.x += (Math.random() - 0.5) * 40;
+                p.x = Math.max(15, Math.min(width - 15, p.x));
+                p.y = getCanvasY(p.x, landscapeShift);
+
+                // CORRECCIÓN: Queremos minimizar el error (ir hacia abajo de la pantalla, Y grande)
+                // Por tanto, la aptitud (peso) aumenta entre mayor sea p.y en la pantalla
+                p.weight = Math.pow(p.y, 5);
+            });
+
+            // Normalización de pesos
+            let totalW = particles.reduce((sum, p) => sum + p.weight, 0);
+            if (totalW > 0) particles.forEach(p => p.weight /= totalW);
+
+            // Resampleo Ruleta
+            if (Math.random() > 0.7) {
+                particles.sort((a, b) => b.weight - a.weight);
+                for (let i = Math.floor(NUM_PARTICLES * 0.4); i < NUM_PARTICLES; i++) {
+                    let parent = particles[Math.floor(Math.random() * (NUM_PARTICLES * 0.3))];
+                    particles[i].x = parent.x + (Math.random() - 0.5) * 12;
+                }
+            }
+
+            // --- 2. DESCENSO DE GRADIENTE (GD) ---
+            let delta = 2;
+            let yLeft = getCanvasY(gdPoint.x - delta, landscapeShift);
+            let yRight = getCanvasY(gdPoint.x + delta, landscapeShift);
+
+            // Queremos ir hacia ABAJO en el canvas (Y mayor implica menor error)
+            // Si yRight > yLeft, el error disminuye hacia la derecha, el gradiente debe ser positivo.
+            let gradient = (yRight - yLeft) / (2 * delta);
+
+            gdPoint.x += gradient * 15; // Paso de aprendizaje
+            // Pequeño ruido térmico para que el gradiente no se estanque totalmente a veces
+            gdPoint.x += (Math.random() - 0.5) * 0.5;
+            gdPoint.x = Math.max(15, Math.min(width - 15, gdPoint.x));
+            gdPoint.y = getCanvasY(gdPoint.x, landscapeShift);
+
+            // --- Métricas de Desempeño ---
+            let avgX_PF = particles.reduce((sum, p) => sum + p.x, 0) / NUM_PARTICLES;
+            let distPF = Math.abs(avgX_PF - trueGlobalMinX).toFixed(1);
+            let distGD = Math.abs(gdPoint.x - trueGlobalMinX).toFixed(1);
+
+            document.getElementById('lbl-err-pf').innerText = distPF + " px";
+            document.getElementById('lbl-err-gd').innerText = distGD + " px";
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Flash de evento ambiental
+            if (flashTime > 0) {
+                ctx.fillStyle = flashColor;
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            // Rejilla de ingeniería
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < width; x += 50) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+
+            // Dibujar Curva de Error Real (Línea Azul)
+            ctx.beginPath();
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 3;
+            for (let x = 0; x < width; x++) {
+                let y = getCanvasY(x, landscapeShift);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Dibujar Partículas (Rojas) -> Buscando los valles correctamente
+            particles.forEach(p => {
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Dibujar Gradiente (Amarillo) -> Buscando los valles
+            ctx.fillStyle = '#ffde59';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ffde59';
+            ctx.beginPath();
+            ctx.arc(gdPoint.x, gdPoint.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = canvas.offsetWidth;
+            init();
+        });
+
+        init();
+        draw();
+    </script>
+
+</body>
+
+</html>
