@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtros Avanzados vs Metaheuristicas en RHONN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-cyan: #00f2ff;
+            --accent-yellow: #ffde59;
+            --accent-coral: #f43f5e;
+            --accent-orange: #f97316;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --accent-pso: #ff4dd2;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            max-width: 1000px;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 2.1rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            max-width: 1500px;
+            width: 100%;
+        }
+
+        @media (min-width: 1150px) {
+            .dashboard {
+                grid-template-columns: 420px 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 680px;
+            overflow-y: auto;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 5px 8px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            margin-bottom: -12px;
+        }
+
+        .tab-content {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+
+        .tab-content h3 {
+            color: white;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .compare-list {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .compare-item {
+            background: rgba(0, 0, 0, 0.18);
+            border-left: 3px solid #475569;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+
+        .equation-box {
+            margin-top: 10px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+
+        .simulation-container {
+            position: relative;
+            background-color: #0b1329;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            width: 100%;
+            height: 480px;
+            background: #050b14;
+        }
+
+        .controls-bar {
+            background-color: #111827;
+            padding: 15px 20px;
+            border-top: 1px solid #334155;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        button.action-btn {
+            font-family: 'Urbanist', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 9px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-wind-left {
+            background-color: #0284c7;
+            color: white;
+        }
+
+        .btn-wind-left:hover {
+            background-color: #0ea5e9;
+        }
+
+        .btn-wind-right {
+            background-color: #0369a1;
+            color: white;
+        }
+
+        .btn-wind-right:hover {
+            background-color: #0284c7;
+        }
+
+        .btn-change-func {
+            background-color: var(--accent-purple);
+            color: white;
+        }
+
+        .btn-change-func:hover {
+            background-color: #c084fc;
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #64748b;
+        }
+
+        .metrics-grid {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.92);
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.78rem;
+            border: 1px solid #334155;
+            display: grid;
+            grid-template-columns: auto auto;
+            column-gap: 15px;
+            row-gap: 3px;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 260px;
+        }
+
+        .metric-val {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .legend-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            font-size: 0.72rem;
+            width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .legend-container {
+                grid-template-columns: repeat(6, auto);
+                width: auto;
+            }
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Filtros Bayesianos vs Metaheuristicas de Enjambre Corregido</h1>
+        <p>Simulador avanzado para comparar PF, EKF, UKF, GD y PSO en funciones moviles.</p>
+    </header>
+
+    <div class="dashboard">
+        <div class="panel">
+            <div class="tabs">
+                <button class="tab-btn active" type="button" onclick="switchTab('meta', this)">Metaheuristicas
+                    Corregidas</button>
+                <button class="tab-btn" type="button" onclick="switchTab('diferencias', this)">Filtros vs
+                    Enjambres</button>
+                <button class="tab-btn" type="button" onclick="switchTab('pso-pf', this)">PSO vs PF</button>
+            </div>
+
+            <div id="tab-meta" class="tab-content">
+                <h3><i class="fas fa-spider" style="color: var(--accent-pso);"></i> Optimizacion Dinamica</h3>
+                <p><strong>Correccion aplicada:</strong> el enjambre PSO actualiza su memoria en cada cuadro sobre el
+                    paisaje actual para evitar desfasaje cuando hay viento o mutacion de ecuacion.</p>
+            </div>
+
+            <div id="tab-diferencias" class="tab-content" style="display: none;">
+                <h3><i class="fas fa-balance-scale" style="color: var(--accent-cyan);"></i> Choque de Paradigmas</h3>
+                <p>Compara la respuesta de estimadores puntuales (EKF/UKF/GD) contra metodos poblacionales (PF/PSO) ante
+                    cambios bruscos del sistema.</p>
+            </div>
+
+            <div id="tab-pso-pf" class="tab-content" style="display: none;">
+                <h3><i class="fas fa-chart-line" style="color: var(--accent-pso);"></i> Comparativa PSO vs PF</h3>
+                <div class="compare-list">
+                    <div class="compare-item"><strong>PSO:</strong> mantiene memoria individual y social (pbest, gbest)
+                        y mueve cada partícula con una velocidad explícita.</div>
+                    <div class="compare-item"><strong>PF:</strong> no usa velocidad global; usa pesos de importancia y
+                        remuestreo para concentrar masa probabilística.</div>
+                    <div class="compare-item"><strong>PSO (fortaleza):</strong> converge rápido en superficies suaves y
+                        acelera hacia líderes claros.</div>
+                    <div class="compare-item"><strong>PF (fortaleza):</strong> robusto ante multimodalidad y ruido
+                        fuerte porque preserva hipótesis múltiples.</div>
+                </div>
+
+                <div class="equation-box">
+                    <p><strong>Ecuaciones PSO</strong></p>
+                    <p>$$v_i(t+1)=\omega v_i(t)+c_1r_1\big(p_i^{best}-x_i(t)\big)+c_2r_2\big(g^{best}-x_i(t)\big)$$</p>
+                    <p>$$x_i(t+1)=x_i(t)+v_i(t+1)$$</p>
+                </div>
+
+                <div class="equation-box">
+                    <p><strong>Ecuaciones Filtro de Partículas</strong></p>
+                    <p>$$x_t^{(i)}\sim p\big(x_t\mid x_{t-1}^{(i)}\big),\qquad
+                        ilde{w}_t^{(i)}=w_{t-1}^{(i)}\,p\big(y_t\mid x_t^{(i)}\big)$$</p>
+                    <p>$$w_t^{(i)}=\frac{\tilde{w}_t^{(i)}}{\sum_{j=1}^{N}\tilde{w}_t^{(j)}},\qquad
+                        \{x_t^{(i)}\}_{i=1}^{N}\xleftarrow{\text{resample}}\text{Cat}\big(w_t^{(1:N)}\big)$$</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="simulation-container">
+            <div class="metrics-grid">
+                <div style="color: var(--accent-cyan);">Evento:</div>
+                <div id="lbl-evento" class="metric-val" style="color: var(--accent-cyan);">Estable</div>
+
+                <div style="color: var(--accent-pso);">Error PSO:</div>
+                <div id="err-pso" class="metric-val" style="color: var(--accent-pso);">0.0 px</div>
+
+                <div style="color: var(--accent-coral);">Error PF:</div>
+                <div id="err-pf" class="metric-val" style="color: var(--accent-coral);">0.0 px</div>
+
+                <div style="color: var(--accent-green);">Error UKF:</div>
+                <div id="err-ukf" class="metric-val" style="color: var(--accent-green);">0.0 px</div>
+
+                <div style="color: var(--accent-orange);">Error EKF:</div>
+                <div id="err-ekf" class="metric-val" style="color: var(--accent-orange);">0.0 px</div>
+
+                <div style="color: var(--accent-yellow);">Error GD:</div>
+                <div id="err-gd" class="metric-val" style="color: var(--accent-yellow);">0.0 px</div>
+            </div>
+
+            <canvas id="simCanvas"></canvas>
+
+            <div class="controls-bar">
+                <div class="btn-group">
+                    <button class="action-btn btn-wind-left" type="button" onclick="triggerWindManual(-1)">
+                        <i class="fas fa-arrow-left"></i> VIENTO IZQ
+                    </button>
+                    <button class="action-btn btn-wind-right" type="button" onclick="triggerWindManual(1)">
+                        VIENTO DER <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="action-btn btn-change-func" type="button" onclick="changeEquationStructure()">
+                        <i class="fas fa-project-diagram"></i> MUTAR ECUACION
+                    </button>
+                    <button class="action-btn btn-secondary" type="button" onclick="resetSim()">
+                        <i class="fas fa-undo"></i> REINICIAR
+                    </button>
+                </div>
+
+                <div class="legend-container">
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-cyan);"></div> Error
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-pso);"></div> PSO
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-coral);"></div> PF
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-green);"></div> UKF
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-orange);"></div> EKF
+                    </div>
+                    <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-yellow);"></div> GD
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = canvas.offsetWidth;
+        let height = canvas.height = 480;
+
+        let landscapeShift = 0;
+        let targetShift = 0;
+        let eqType = 0;
+        let flashTime = 0;
+        let flashColor = 'rgba(0, 242, 255, 0.1)';
+
+        let particles = [];
+        const NUM_PARTICLES = 30;
+
+        let psoSwarm = [];
+        const NUM_PSO = 25;
+        let gbestX = 0;
+
+        let gdPoint = { x: 0, y: 0 };
+        let ekfState = { x: 0, P: 100 };
+        let ukfState = { x: 0, P: 120 };
+
+        function getErrorValue(x, shift) {
+            const nx = (x - width / 2 + shift) / 65;
+            if (eqType === 0) {
+                return 0.3 * Math.sin(1.1 * nx) + 0.25 * Math.cos(3.2 * nx) + 0.1 * Math.sin(5.5 * nx) + 0.55;
+            }
+            if (eqType === 1) {
+                return 0.4 * Math.cos(0.9 * nx) + 0.22 * Math.sin(4.2 * nx) + 0.12 * Math.cos(6.5 * nx) + 0.5;
+            }
+            return 0.35 * Math.sin(1.8 * nx) * Math.cos(0.6 * nx) + 0.25 * Math.sin(4.8 * nx) + 0.58;
+        }
+
+        function getCanvasY(x, shift) {
+            const errVal = getErrorValue(x, shift);
+            return height - 85 - (errVal * 250);
+        }
+
+        function init() {
+            particles = [];
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                particles.push({ x: Math.random() * (width - 60) + 30, y: 0, weight: 1 / NUM_PARTICLES });
+            }
+
+            const initX = width * 0.5;
+            gbestX = initX;
+
+            psoSwarm = [];
+            for (let i = 0; i < NUM_PSO; i++) {
+                const rx = Math.random() * (width - 60) + 30;
+                psoSwarm.push({
+                    x: rx,
+                    vx: (Math.random() - 0.5) * 4,
+                    pbestX: rx
+                });
+            }
+
+            gdPoint.x = initX;
+            ekfState.x = initX;
+            ekfState.P = 150;
+            ukfState.x = initX;
+            ukfState.P = 150;
+
+            landscapeShift = 0;
+            targetShift = 0;
+            flashTime = 0;
+            document.getElementById('lbl-evento').innerText = 'Estable';
+            document.getElementById('lbl-evento').style.color = 'var(--accent-cyan)';
+        }
+
+        function triggerWindManual(direction) {
+            const fixedStep = 150;
+            targetShift += direction * fixedStep;
+            const maxLimit = width * 0.8;
+            if (targetShift > maxLimit) targetShift = maxLimit;
+            if (targetShift < -maxLimit) targetShift = -maxLimit;
+
+            flashColor = direction === 1 ? 'rgba(3, 105, 161, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+            flashTime = 20;
+            document.getElementById('lbl-evento').innerText = direction === 1 ? 'Viento -> Der' : 'Viento <- Izq';
+            document.getElementById('lbl-evento').style.color = 'var(--accent-cyan)';
+        }
+
+        function changeEquationStructure() {
+            eqType = (eqType + 1) % 3;
+            flashColor = 'rgba(168, 85, 247, 0.18)';
+            flashTime = 30;
+            document.getElementById('lbl-evento').innerText = 'Funcion Mutada';
+            document.getElementById('lbl-evento').style.color = 'var(--accent-purple)';
+        }
+
+        function resetSim() {
+            eqType = 0;
+            init();
+        }
+
+        function switchTab(tabName, button) {
+            document.querySelectorAll('.tab-content').forEach((el) => {
+                el.style.display = 'none';
+            });
+            document.querySelectorAll('.tab-btn').forEach((el) => {
+                el.classList.remove('active');
+            });
+            document.getElementById('tab-' + tabName).style.display = 'block';
+            button.classList.add('active');
+        }
+
+        function findTrueMinimumX() {
+            let minVal = Infinity;
+            let minX = 40;
+            for (let x = 20; x < width - 20; x++) {
+                const val = getErrorValue(x, landscapeShift);
+                if (val < minVal) {
+                    minVal = val;
+                    minX = x;
+                }
+            }
+            return minX;
+        }
+
+        function update() {
+            landscapeShift += (targetShift - landscapeShift) * 0.08;
+            if (flashTime > 0) flashTime--;
+
+            const trueGlobalMinX = findTrueMinimumX();
+            const delta = 2;
+
+            let currentBestY = -Infinity;
+
+            psoSwarm.forEach((p) => {
+                const currentY = getCanvasY(p.x, landscapeShift);
+                const pbestY = getCanvasY(p.pbestX, landscapeShift);
+
+                if (currentY > pbestY) {
+                    p.pbestX = p.x;
+                }
+
+                if (currentY > currentBestY) {
+                    currentBestY = currentY;
+                    gbestX = p.x;
+                }
+            });
+
+            psoSwarm.forEach((p) => {
+                const r1 = Math.random();
+                const r2 = Math.random();
+
+                p.vx = 0.6 * p.vx + 1.2 * r1 * (p.pbestX - p.x) + 1.2 * r2 * (gbestX - p.x);
+                p.vx = Math.max(-15, Math.min(15, p.vx));
+                p.x += p.vx;
+
+                if (p.x < 20) {
+                    p.x = 20;
+                    p.vx *= -0.5;
+                }
+                if (p.x > width - 20) {
+                    p.x = width - 20;
+                    p.vx *= -0.5;
+                }
+            });
+
+            particles.forEach((p) => {
+                p.x += (Math.random() - 0.5) * 38;
+                p.x = Math.max(20, Math.min(width - 20, p.x));
+                p.y = getCanvasY(p.x, landscapeShift);
+                p.weight = Math.pow(p.y, 5);
+            });
+            const totalW = particles.reduce((sum, p) => sum + p.weight, 0);
+            if (totalW > 0) {
+                particles.forEach((p) => {
+                    p.weight /= totalW;
+                });
+            }
+            if (Math.random() > 0.75) {
+                particles.sort((a, b) => b.weight - a.weight);
+                for (let i = Math.floor(NUM_PARTICLES * 0.4); i < NUM_PARTICLES; i++) {
+                    const parent = particles[Math.floor(Math.random() * (NUM_PARTICLES * 0.25))];
+                    particles[i].x = parent.x + (Math.random() - 0.5) * 15;
+                }
+            }
+
+            const yL_gd = getCanvasY(gdPoint.x - delta, landscapeShift);
+            const yR_gd = getCanvasY(gdPoint.x + delta, landscapeShift);
+            const grad_gd = (yR_gd - yL_gd) / (2 * delta);
+            gdPoint.x += grad_gd * 12 + (Math.random() - 0.5) * 0.4;
+            gdPoint.x = Math.max(20, Math.min(width - 20, gdPoint.x));
+            gdPoint.y = getCanvasY(gdPoint.x, landscapeShift);
+
+            ekfState.P += 4.0;
+            const yL_ekf = getCanvasY(ekfState.x - delta, landscapeShift);
+            const yR_ekf = getCanvasY(ekfState.x + delta, landscapeShift);
+            const H = (yR_ekf - yL_ekf) / (2 * delta);
+            const R = 35;
+            const S = H * ekfState.P * H + R;
+            const K_ekf = (ekfState.P * H) / S;
+            ekfState.x += K_ekf * 15;
+            ekfState.P = (1 - K_ekf * H) * ekfState.P;
+            ekfState.x = Math.max(20, Math.min(width - 20, ekfState.x));
+
+            ukfState.P += 5.0;
+            const sigmaSpace = Math.sqrt(Math.max(1, ukfState.P));
+            const sigmas = [ukfState.x, ukfState.x - sigmaSpace, ukfState.x + sigmaSpace];
+            const outputs = sigmas.map((s) => getCanvasY(Math.max(20, Math.min(width - 20, s)), landscapeShift));
+            const meanOutput = (outputs[0] + outputs[1] + outputs[2]) / 3;
+            let crossCov = 0;
+            let outputCov = 0;
+            for (let i = 0; i < 3; i++) {
+                crossCov += (sigmas[i] - ukfState.x) * (outputs[i] - meanOutput);
+                outputCov += (outputs[i] - meanOutput) * (outputs[i] - meanOutput);
+            }
+            crossCov /= 3;
+            outputCov /= 3;
+            const R_u = 40;
+            const K_ukf = crossCov / (outputCov + R_u);
+            const ukfGrad = (outputs[2] - outputs[1]) / ((2 * sigmaSpace) || 1);
+            ukfState.x += ukfGrad * 14;
+            ukfState.P = ukfState.P - K_ukf * (outputCov + R_u) * K_ukf;
+            ukfState.x = Math.max(20, Math.min(width - 20, ukfState.x));
+
+            const avgX_PF = particles.reduce((sum, p) => sum + p.x, 0) / NUM_PARTICLES;
+            const avgX_PSO = psoSwarm.reduce((sum, p) => sum + p.x, 0) / NUM_PSO;
+
+            document.getElementById('err-pso').innerText = Math.abs(avgX_PSO - trueGlobalMinX).toFixed(1) + ' px';
+            document.getElementById('err-pf').innerText = Math.abs(avgX_PF - trueGlobalMinX).toFixed(1) + ' px';
+            document.getElementById('err-gd').innerText = Math.abs(gdPoint.x - trueGlobalMinX).toFixed(1) + ' px';
+            document.getElementById('err-ekf').innerText = Math.abs(ekfState.x - trueGlobalMinX).toFixed(1) + ' px';
+            document.getElementById('err-ukf').innerText = Math.abs(ukfState.x - trueGlobalMinX).toFixed(1) + ' px';
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            if (flashTime > 0) {
+                ctx.fillStyle = flashColor;
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#00f2ff';
+            ctx.lineWidth = 3;
+            for (let x = 0; x < width; x++) {
+                const y = getCanvasY(x, landscapeShift);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            particles.forEach((p) => {
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            psoSwarm.forEach((p) => {
+                const py = getCanvasY(p.x, landscapeShift);
+                ctx.fillStyle = '#ff4dd2';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff4dd2';
+                ctx.beginPath();
+                ctx.arc(p.x, py, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(255, 77, 210, 0.55)';
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.moveTo(p.x, py);
+                ctx.lineTo(p.x - p.vx * 2.2, py);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            });
+
+            const ukfY = getCanvasY(ukfState.x, landscapeShift);
+            ctx.fillStyle = '#22c55e';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#22c55e';
+            ctx.beginPath();
+            ctx.arc(ukfState.x, ukfY, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            const ekfY = getCanvasY(ekfState.x, landscapeShift);
+            ctx.fillStyle = '#f97316';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#f97316';
+            ctx.beginPath();
+            ctx.arc(ekfState.x, ekfY, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffde59';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ffde59';
+            ctx.beginPath();
+            ctx.arc(gdPoint.x, gdPoint.y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = canvas.offsetWidth;
+            init();
+        });
+
+        init();
+        draw();
+    </script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+</body>
+
+</html>
