@@ -539,18 +539,18 @@
             const trueGlobalMinX = findTrueMinimumX();
             const delta = 2;
 
-            let currentBestY = -Infinity;
+            let currentBestError = Infinity;
 
             psoSwarm.forEach((p) => {
-                const currentY = getCanvasY(p.x, landscapeShift);
-                const pbestY = getCanvasY(p.pbestX, landscapeShift);
+                const currentError = getErrorValue(p.x, landscapeShift);
+                const pbestError = getErrorValue(p.pbestX, landscapeShift);
 
-                if (currentY > pbestY) {
+                if (currentError < pbestError) {
                     p.pbestX = p.x;
                 }
 
-                if (currentY > currentBestY) {
-                    currentBestY = currentY;
+                if (currentError < currentBestError) {
+                    currentBestError = currentError;
                     gbestX = p.x;
                 }
             });
@@ -678,19 +678,19 @@
             psoSwarm.forEach((p) => {
                 const py = getCanvasY(p.x, landscapeShift);
                 ctx.fillStyle = '#ff4dd2';
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = '#ff4dd2';
                 ctx.beginPath();
-                ctx.arc(p.x, py, 7, 0, Math.PI * 2);
+                ctx.arc(p.x, py, 4.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.lineWidth = 1.2;
+                ctx.lineWidth = 1;
                 ctx.stroke();
                 ctx.strokeStyle = 'rgba(255, 77, 210, 0.55)';
-                ctx.lineWidth = 2.2;
+                ctx.lineWidth = 1.6;
                 ctx.beginPath();
                 ctx.moveTo(p.x, py);
-                ctx.lineTo(p.x - p.vx * 2.2, py);
+                ctx.lineTo(p.x - p.vx * 1.8, py);
                 ctx.stroke();
                 ctx.shadowBlur = 0;
             });
