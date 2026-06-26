@@ -20,6 +20,7 @@
             --accent-purple: #a855f7;
             --accent-green: #22c55e;
             --accent-pso: #ff4dd2;
+            --accent-ga: #60a5fa;
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
         }
@@ -329,6 +330,8 @@
                         acelera hacia líderes claros.</div>
                     <div class="compare-item"><strong>PF (fortaleza):</strong> robusto ante multimodalidad y ruido
                         fuerte porque preserva hipótesis múltiples.</div>
+                    <div class="compare-item"><strong>AG (fortaleza):</strong> mantiene diversidad con cruce y mutación,
+                        útil para escapar de mínimos locales sin depender de derivadas.</div>
                 </div>
 
                 <div class="equation-box">
@@ -344,6 +347,15 @@
                     <p>$$w_t^{(i)}=\frac{\tilde{w}_t^{(i)}}{\sum_{j=1}^{N}\tilde{w}_t^{(j)}},\qquad
                         \{x_t^{(i)}\}_{i=1}^{N}\xleftarrow{\text{resample}}\text{Cat}\big(w_t^{(1:N)}\big)$$</p>
                 </div>
+
+                <div class="equation-box">
+                    <p><strong>Ecuaciones Algoritmo Genético</strong></p>
+                    <p>$$x_{hijo}=\alpha x_{padre1} + (1-\alpha)x_{padre2} + \epsilon,\quad
+                        \epsilon\sim\mathcal{N}(0,\sigma^2)$$</p>
+                    <p>$$\text{selección por
+                        torneo}\;\rightarrow\;\text{cruce}\;\rightarrow\;\text{mutación}\;\rightarrow\;\text{elitismo}$$
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -357,6 +369,9 @@
 
                 <div style="color: var(--accent-coral);">Error PF:</div>
                 <div id="err-pf" class="metric-val" style="color: var(--accent-coral);">0.0 px</div>
+
+                <div style="color: var(--accent-ga);">Error AG:</div>
+                <div id="err-ga" class="metric-val" style="color: var(--accent-ga);">0.0 px</div>
 
                 <div style="color: var(--accent-green);">Error UKF:</div>
                 <div id="err-ukf" class="metric-val" style="color: var(--accent-green);">0.0 px</div>
@@ -397,6 +412,9 @@
                         <div class="dot" style="background: var(--accent-coral);"></div> PF
                     </div>
                     <div class="legend-item">
+                        <div class="dot" style="background: var(--accent-ga);"></div> AG
+                    </div>
+                    <div class="legend-item">
                         <div class="dot" style="background: var(--accent-green);"></div> UKF
                     </div>
                     <div class="legend-item">
@@ -430,6 +448,10 @@
         const NUM_PSO = 25;
         let gbestX = 0;
 
+        let gaPopulation = [];
+        const NUM_GA = 28;
+        let gaBestX = 0;
+
         let gdPoint = { x: 0, y: 0 };
         let ekfState = { x: 0, P: 100 };
         let ukfState = { x: 0, P: 120 };
@@ -450,6 +472,21 @@
             return height - 85 - (errVal * 250);
         }
 
+        function gaFitness(x) {
+            return 1 / (getErrorValue(x, landscapeShift) + 1e-6);
+        }
+
+        function tournamentSelect(population, size = 3) {
+            let best = null;
+            for (let i = 0; i < size; i++) {
+                const candidate = population[Math.floor(Math.random() * population.length)];
+                if (!best || candidate.fitness > best.fitness) {
+                    best = candidate;
+                }
+            }
+            return best;
+        }
+
         function init() {
             particles = [];
             for (let i = 0; i < NUM_PARTICLES; i++) {
@@ -468,6 +505,15 @@
                     pbestX: rx
                 });
             }
+
+            gaPopulation = [];
+            for (let i = 0; i < NUM_GA; i++) {
+                gaPopulation.push({
+                    x: Math.random() * (width - 60) + 30,
+                    fitness: 0
+                });
+            }
+            gaBestX = initX;
 
             gdPoint.x = initX;
             ekfState.x = initX;
@@ -573,6 +619,42 @@
                 }
             });
 
+            // --- ALGORITMO GENETICO (AG) ---
+            gaPopulation.forEach((ind) => {
+                ind.fitness = gaFitness(ind.x);
+            });
+            gaPopulation.sort((a, b) => b.fitness - a.fitness);
+            gaBestX = gaPopulation[0].x;
+
+            const eliteCount = Math.max(2, Math.floor(NUM_GA * 0.2));
+            const newGeneration = [];
+
+            for (let i = 0; i < eliteCount; i++) {
+                // Los elites conservan memoria con una perturbacion minima para tracking dinamico.
+                newGeneration.push({
+                    x: Math.max(20, Math.min(width - 20, gaPopulation[i].x + (Math.random() - 0.5) * 2)),
+                    fitness: 0
+                });
+            }
+
+            while (newGeneration.length < NUM_GA) {
+                const p1 = tournamentSelect(gaPopulation, 3);
+                const p2 = tournamentSelect(gaPopulation, 3);
+                const alpha = Math.random();
+                let childX = alpha * p1.x + (1 - alpha) * p2.x;
+
+                if (Math.random() < 0.35) {
+                    childX += (Math.random() - 0.5) * 26;
+                } else {
+                    childX += (Math.random() - 0.5) * 8;
+                }
+
+                childX = Math.max(20, Math.min(width - 20, childX));
+                newGeneration.push({ x: childX, fitness: 0 });
+            }
+
+            gaPopulation = newGeneration;
+
             particles.forEach((p) => {
                 p.x += (Math.random() - 0.5) * 38;
                 p.x = Math.max(20, Math.min(width - 20, p.x));
@@ -636,6 +718,7 @@
 
             document.getElementById('err-pso').innerText = Math.abs(avgX_PSO - trueGlobalMinX).toFixed(1) + ' px';
             document.getElementById('err-pf').innerText = Math.abs(avgX_PF - trueGlobalMinX).toFixed(1) + ' px';
+            document.getElementById('err-ga').innerText = Math.abs(gaBestX - trueGlobalMinX).toFixed(1) + ' px';
             document.getElementById('err-gd').innerText = Math.abs(gdPoint.x - trueGlobalMinX).toFixed(1) + ' px';
             document.getElementById('err-ekf').innerText = Math.abs(ekfState.x - trueGlobalMinX).toFixed(1) + ' px';
             document.getElementById('err-ukf').innerText = Math.abs(ukfState.x - trueGlobalMinX).toFixed(1) + ' px';
@@ -674,6 +757,26 @@
                 ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
                 ctx.fill();
             });
+
+            gaPopulation.forEach((ind) => {
+                const gy = getCanvasY(ind.x, landscapeShift);
+                ctx.fillStyle = 'rgba(96, 165, 250, 0.55)';
+                ctx.beginPath();
+                ctx.arc(ind.x, gy, 2.8, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            const gaBestY = getCanvasY(gaBestX, landscapeShift);
+            ctx.fillStyle = '#60a5fa';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#60a5fa';
+            ctx.beginPath();
+            ctx.arc(gaBestX, gaBestY, 6.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
 
             psoSwarm.forEach((p) => {
                 const py = getCanvasY(p.x, landscapeShift);
